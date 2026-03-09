@@ -15,21 +15,31 @@ async function sleep(ms){
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+function buildRiskBar(critical, high, medium, low){
+
+  const total = critical + high + medium + low
+  if(total === 0) return "No vulnerabilities"
+
+  const size = 20
+
+  const c = Math.round((critical/total)*size)
+  const h = Math.round((high/total)*size)
+  const m = Math.round((medium/total)*size)
+  const l = size - (c+h+m)
+
+  return "🟥".repeat(c) + "🟧".repeat(h) + "🟨".repeat(m) + "🟩".repeat(l)
+}
+
 app.post("/harbor", async (req, res) => {
 
   try {
 
     const data = req.body
 
-    console.log("Webhook received")
-
-    const repo =
-      data?.event_data?.repository?.repo_full_name
-
-    const resource =
-      data?.event_data?.resources?.[0]
-
+    const repo = data?.event_data?.repository?.repo_full_name
+    const resource = data?.event_data?.resources?.[0]
     const digest = resource?.digest
+    const tag = resource?.tag || "no-tag"
 
     if(!repo || !digest){
       return res.status(200).send("ignored")
@@ -38,21 +48,19 @@ app.post("/harbor", async (req, res) => {
     const project = repo.split("/")[0]
     const repository = repo.split("/").slice(1).join("/")
 
-    console.log("Repository:", repo)
-    console.log("Digest:", digest)
+    const artifactApi =
+      `${HARBOR_URL}/api/v2.0/projects/${project}/repositories/${repository}/artifacts/${digest}`
 
-    const artifactUrl =
-      `${HARBOR_URL}/api/v2.0/projects/${project}` +
-      `/repositories/${repository}/artifacts/${digest}`
+    const artifactUI =
+      `${HARBOR_URL}/harbor/projects/${project}/repositories/${repository}/artifacts/${digest}`
 
     let vulnPath = null
     let artifact = null
 
-    // tenta até 10 vezes pegar o relatório
     for(let i=0;i<10;i++){
 
       const artifactResponse = await axios.get(
-        artifactUrl,
+        artifactApi,
         {
           auth:{
             username:HARBOR_USER,
@@ -63,25 +71,18 @@ app.post("/harbor", async (req, res) => {
 
       artifact = artifactResponse.data
 
-      vulnPath =
-        artifact?.addition_links?.vulnerabilities?.href
+      vulnPath = artifact?.addition_links?.vulnerabilities?.href
 
-      if(vulnPath){
-        break
-      }
+      if(vulnPath) break
 
-      console.log("Vulnerability report not ready, retrying...")
       await sleep(3000)
-
     }
 
     if(!vulnPath){
-      console.log("No vulnerability report found")
       return res.status(200).send("no report")
     }
 
-    const vulnUrl =
-      `${HARBOR_URL}${vulnPath}`
+    const vulnUrl = `${HARBOR_URL}${vulnPath}`
 
     const vulnResponse = await axios.get(
       vulnUrl,
@@ -103,55 +104,112 @@ app.post("/harbor", async (req, res) => {
     let medium = 0
     let low = 0
 
-    if(report?.vulnerabilities){
+    const vulns = report?.vulnerabilities || []
 
-      report.vulnerabilities.forEach(v=>{
+    vulns.forEach(v => {
 
-        switch(v.severity){
+      switch(v.severity){
+        case "Critical": critical++; break
+        case "High": high++; break
+        case "Medium": medium++; break
+        case "Low": low++; break
+      }
 
-          case "Critical":
-            critical++
-            break
+    })
 
-          case "High":
-            high++
-            break
+    const total = critical + high + medium + low
 
-          case "Medium":
-            medium++
-            break
-
-          case "Low":
-            low++
-            break
-
-        }
-
+    const topCVEs = vulns
+      .sort((a,b)=>{
+        const order = {Critical:4,High:3,Medium:2,Low:1}
+        return order[b.severity]-order[a.severity]
       })
+      .slice(0,5)
+      .map(v => `• ${v.id} (${v.severity})`)
+      .join("\n")
 
+    const riskBar = buildRiskBar(critical,high,medium,low)
+
+    const card = {
+      type: "message",
+      attachments: [
+        {
+          contentType: "application/vnd.microsoft.card.adaptive",
+          content: {
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            type: "AdaptiveCard",
+            version: "1.4",
+            body: [
+
+              {
+                type: "TextBlock",
+                text: "Harbor Vulnerability Scan",
+                weight: "Bolder",
+                size: "Large"
+              },
+
+              {
+                type: "FactSet",
+                facts: [
+                  {title:"Repository", value: repo},
+                  {title:"Tag", value: tag},
+                  {title:"Digest", value: digest.substring(0,20)+"..."}
+                ]
+              },
+
+              {
+                type: "TextBlock",
+                text: "Risk Distribution",
+                weight: "Bolder",
+                spacing: "Medium"
+              },
+
+              {
+                type: "TextBlock",
+                text: riskBar,
+                wrap: true
+              },
+
+              {
+                type: "FactSet",
+                facts: [
+                  {title:"Critical", value:`${critical}`},
+                  {title:"High", value:`${high}`},
+                  {title:"Medium", value:`${medium}`},
+                  {title:"Low", value:`${low}`},
+                  {title:"Total", value:`${total}`}
+                ]
+              },
+
+              {
+                type: "TextBlock",
+                text: "Top CVEs",
+                weight: "Bolder",
+                spacing: "Medium"
+              },
+
+              {
+                type: "TextBlock",
+                text: topCVEs || "None",
+                wrap: true
+              }
+
+            ],
+
+            actions: [
+              {
+                type: "Action.OpenUrl",
+                title: "Open Artifact in Harbor",
+                url: artifactUI
+              }
+            ]
+
+          }
+        }
+      ]
     }
 
-    const total =
-      critical + high + medium + low
-
-    const teamsPayload = {
-
-      text:
-      `Harbor Vulnerability Scan\n\n`+
-      `Repository: ${repo}\n`+
-      `Digest: ${digest}\n\n`+
-      `Critical: ${critical}\n`+
-      `High: ${high}\n`+
-      `Medium: ${medium}\n`+
-      `Low: ${low}\n\n`+
-      `Total: ${total}`
-
-    }
-
-    await axios.post(
-      TEAMS_WEBHOOK,
-      teamsPayload
-    )
+    await axios.post(TEAMS_WEBHOOK, card)
 
     res.status(200).send("notification sent")
 
@@ -159,7 +217,6 @@ app.post("/harbor", async (req, res) => {
   catch(err){
 
     console.error(err.message)
-
     res.status(200).send("handled")
 
   }
@@ -167,7 +224,5 @@ app.post("/harbor", async (req, res) => {
 })
 
 app.listen(5000, ()=>{
-
   console.log("Harbor webhook adapter running on port 5000")
-
 })
