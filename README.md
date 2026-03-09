@@ -11,3 +11,13 @@ This Node.js + Docker web server is used to send notifications via the Harbor Te
 2. Remove container -> docker rm -f harbor-teams-webhook
 
 or execute script shell ./stop-and-start-build.sh
+
+
+# Message Notifications Teams: 
++ Pull
++ Push
++ Scan
++ Delete
+
+<img width="810" height="320" alt="image" src="https://github.com/user-attachments/assets/789ebbfa-627d-43e0-b2f1-60684d4f7a8b" />
+<img width="810" height="320" alt="image" src="https://github.com/user-attachments/assets/789ebbfa-627d-43e0-b2f1-60684d4f7a8b" />
