@@ -4,7 +4,7 @@
 <img width="421" height="119" alt="download" src="https://github.com/user-attachments/assets/d2bbf897-bd1e-4bdb-af41-d55b76fd2b38" />
 
 
-# Nodejs-harbor
+# Nodejs-Harbor
 This Node.js + Docker web server is used to send notifications via the Harbor Teams webhook on the Harbor platform.
 
 1. Building the Docker image -> docker build -t harbor-teams-webhook .
