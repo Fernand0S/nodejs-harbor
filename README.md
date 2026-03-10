@@ -21,4 +21,5 @@ or execute script shell ./stop-and-start-build.sh
 
 
 Basic information card adaptive with Top CVEs, TAG, Digest, Repository and open artifacts in harbor, if users not permission in project, view panel home. 
+
 <img width="500" height="513" alt="HARBOR" src="https://github.com/user-attachments/assets/f7353d31-26cc-46d6-a596-8bcca30f7d19" />
