@@ -1,6 +1,4 @@
-
-<img width="1312" height="800" alt="Gemini_Generated_Image_urh2u4urh2u4urh2" src="https://github.com/user-attachments/assets/6ee71d74-eb96-4241-b872-30e0f51c4a98" />
-
+<img width="1024" height="624" alt="image" src="https://github.com/user-attachments/assets/b6bb20f7-8b57-4718-8920-10ed2aa54031" />
 
 # Nodejs-Harbor
 This Node.js + Docker web server is used to send notifications via the Harbor Teams webhook on the Harbor platform.
