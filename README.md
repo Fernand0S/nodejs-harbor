@@ -19,4 +19,4 @@ or execute script shell ./stop-and-start-build.sh
 + Scan
 + Delete
 
-<img width="810" height="320" alt="image" src="https://github.com/user-attachments/assets/789ebbfa-627d-43e0-b2f1-60684d4f7a8b" />
+<img width="500" height="513" alt="image" src="https://github.com/user-attachments/assets/b7b6a90b-6eb7-41c8-83c9-57845e387ac1" />
